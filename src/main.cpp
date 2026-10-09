@@ -1,18 +1,83 @@
 #include <Arduino.h>
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <BLE_UART.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
 
-void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+#define OLED_DC 16
+#define OLED_RESET 17
+#define OLED_CS 5
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, OLED_DC, OLED_RESET, OLED_CS);
+
+bool wasConnected = false;
+int messageCount = 0;
+
+void showOnOLED(String title, String message)
+{
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(title);
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+
+  display.setTextSize(2);
+  display.setCursor(0, 16);
+  display.println(message);
+
+  display.display();
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("Program Started");
+
+  display.begin(SSD1306_SWITCHCAPVCC);
+  showOnOLED("Lab 8: BLE", "ryan");
+
+  bleBegin("ESP32_ryan");
+  Serial.println("BLE Started");
+  showOnOLED("BLE Ready", "Waiting");
+  
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void loop()
+{
+
+ if (bleIsConnected() == true && wasConnected == false)
+{
+  wasConnected = true;
+  Serial.println("Phone Connected");
+  showOnOLED("BLE Status", "Connected");
 }
+
+if (bleIsConnected() == false && wasConnected == true)
+{
+  wasConnected = false;
+  Serial.println("Phone Disconnected");
+  showOnOLED("BLE Status", " disconnected");
+}
+
+if (bleMessageAvailable() == true)
+{
+  String message = bleReadMessage();
+
+  messageCount = messageCount + 1;
+
+  Serial.print("Received: ");
+  Serial.println(message);
+
+  String title = "Message " + String(messageCount);
+  showOnOLED(title, message);
+
+  bleSend("Shown on OLED");
+  delay(100);
+}
+}
+
+
